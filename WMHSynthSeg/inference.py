@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys  # Moved up to ensure it's available for path operations if needed
 
 
 def main():
@@ -32,7 +33,6 @@ def main():
     crop = args.crop
     
     # Prepare list of images to segment and leave before loading packages if nothing to do
-    import sys
     if os.path.exists(input_path) is False:
         raise Exception('Input does not exist')
 
@@ -91,7 +91,14 @@ def main():
     torch.set_num_threads(threads)
 
     # Constants;  TODO:replace by FS paths
-    model_file = os.path.join('/app/models', 'WMH-SynthSeg_v10_231110.pth')
+    # --- EDITED SECTION 1: Fix Model Path ---
+    # Old code: model_file = os.path.join('/app/models', 'WMH-SynthSeg_v10_231110.pth')
+    
+    # Get the absolute path to the 'models' folder in the current directory (assuming repo structure)
+    path_models = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
+    model_file = os.path.join(path_models, 'WMH-SynthSeg_v10_231110.pth')
+    # ----------------------------------------
+
     label_list_segmentation = [0, 14, 15, 16, 24, 77, 85, 2, 3, 4, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28, 41, 42, 43, 46,
                                47, 49, 50, 51, 52, 53, 54, 58, 60]
     label_list_segmentation_torch = torch.tensor(label_list_segmentation, device=device)
@@ -124,7 +131,12 @@ def main():
 
         model = UNet3D(in_channels, out_channels, final_sigmoid=False, f_maps=f_maps, layer_order=layer_order,
                        num_groups=num_groups, num_levels=num_levels, is_segmentation=False, is3d=True).to(device)
-        checkpoint = torch.load(model_file, map_location=device)
+        
+        # --- EDITED SECTION 2: Fix PyTorch Security Error ---
+        # Old code: checkpoint = torch.load(model_file, map_location=device)
+        checkpoint = torch.load(model_file, map_location=device, weights_only=False)
+        # ----------------------------------------------------
+        
         model.load_state_dict(checkpoint['model_state_dict'])
 
         n_ims = len(images_to_segment)
