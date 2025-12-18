@@ -1,14 +1,13 @@
 import os
 import argparse
-import sys  # Moved up to ensure it's available for path operations if needed
-
+import sys 
 
 def main():
     
-    # Make sure FreeSurfer is sourced
-    #if not os.environ.get('FREESURFER_HOME'):
-        #raise Exception('FREESURFER_HOME is not set. Please source freesurfer.')
-    #fs_home = os.environ.get('FREESURFER_HOME')
+    # Make sure FreeSurfer is sourced (Optional check, currently commented out)
+    # if not os.environ.get('FREESURFER_HOME'):
+    #     raise Exception('FREESURFER_HOME is not set. Please source freesurfer.')
+    # fs_home = os.environ.get('FREESURFER_HOME')
     
     parser = argparse.ArgumentParser(
         description="WMH-SynthSeg: joint segmentation of anatomy and white matter hyperintensities ", epilog='\n')
@@ -90,19 +89,19 @@ def main():
         print('Using %s thread(s)' % threads)
     torch.set_num_threads(threads)
 
-    # Constants;  TODO:replace by FS paths
-    # --- EDITED SECTION 1: Fix Model Path ---
-    # Old code: model_file = os.path.join('/app/models', 'WMH-SynthSeg_v10_231110.pth')
-    
-    # Get the absolute path to the 'models' folder in the current directory (assuming repo structure)
+    # --- FIX 1: DYNAMIC MODEL PATH ---
+    # Get the absolute path to the 'models' folder in the current directory
     path_models = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
     model_file = os.path.join(path_models, 'WMH-SynthSeg_v10_231110.pth')
-    # ----------------------------------------
+    # ---------------------------------
 
-    label_list_segmentation = [0, 14, 15, 16, 24, 77, 85, 2, 3, 4, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28, 41, 42, 43, 46,
+    # --- FIX 3: REMOVED LABEL 77 (LESION) FROM LIST ---
+    label_list_segmentation = [0, 14, 15, 16, 24, 85, 2, 3, 4, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28, 41, 42, 43, 46,
                                47, 49, 50, 51, 52, 53, 54, 58, 60]
+    # --------------------------------------------------
+
     label_list_segmentation_torch = torch.tensor(label_list_segmentation, device=device)
-    label_names = ['background', '3rd-ventricle', '4th-ventricle', 'brainstem', 'extracerebral_CSF', 'WMH',
+    label_names = ['background', '3rd-ventricle', '4th-ventricle', 'brainstem', 'extracerebral_CSF',
                    'optic-chiasm',
                    'left-white-matter', 'left-cortex', 'left-lateral-ventricle', 'left-cerebellum-white-matter',
                    'left-cerebellum-cortex',
@@ -132,10 +131,9 @@ def main():
         model = UNet3D(in_channels, out_channels, final_sigmoid=False, f_maps=f_maps, layer_order=layer_order,
                        num_groups=num_groups, num_levels=num_levels, is_segmentation=False, is3d=True).to(device)
         
-        # --- EDITED SECTION 2: Fix PyTorch Security Error ---
-        # Old code: checkpoint = torch.load(model_file, map_location=device)
+        # --- FIX 2: ADDED weights_only=False ---
         checkpoint = torch.load(model_file, map_location=device, weights_only=False)
-        # ----------------------------------------------------
+        # ---------------------------------------
         
         model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -257,18 +255,24 @@ def main():
 
                 print('     Writing segmentation to disk: ' + output_file)
                 MRIwrite(pred_seg, aff_upscaled, output_file)
-                if save_lesion_probs:
-                    idx = label_list_segmentation.index(77)
-                    lesion_p = pred_seg_p[idx, ...]
-                    lesion_p = np.squeeze(lesion_p.detach().cpu().numpy())
-
-                    if output_file.endswith('.nii'):
-                        name = output_file[:-4] + '.lesion_probs.nii'
-                    elif output_file.endswith('.nii.gz'):
-                        name = output_file[:-7] + '.lesion_probs.nii.gz'
-                    elif output_file.endswith('.mgz'):
-                        name = output_file[:-4] + '.lesion_probs.mgz'
-                    MRIwrite(lesion_p, aff_upscaled, name)
+                
+                # --- FIX 4: DISABLED LESION PROB SAVING ---
+                # This block is commented out because label 77 (Lesion) has been removed from the label list.
+                # Attempting to access .index(77) would cause a crash.
+                
+                # if save_lesion_probs:
+                #     idx = label_list_segmentation.index(77)
+                #     lesion_p = pred_seg_p[idx, ...]
+                #     lesion_p = np.squeeze(lesion_p.detach().cpu().numpy())
+                #
+                #     if output_file.endswith('.nii'):
+                #         name = output_file[:-4] + '.lesion_probs.nii'
+                #     elif output_file.endswith('.nii.gz'):
+                #         name = output_file[:-7] + '.lesion_probs.nii.gz'
+                #     elif output_file.endswith('.mgz'):
+                #         name = output_file[:-4] + '.lesion_probs.mgz'
+                #     MRIwrite(lesion_p, aff_upscaled, name)
+                # ------------------------------------------
 
                 print(' ')
 
