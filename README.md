@@ -1,5 +1,6 @@
 # mri_WMHsynthseg
 
+> Refactored imports and improved model loading logic: moved `sys` import for path operations, updated the model file path to be dynamic, and fixed the PyTorch checkpoint loading method to prevent security errors.
 
 <blockquote>
   <p>:warning: <strong>Important Notice:</strong> The <code>wmh_synthseg</code> model has just been trained and is ready for use. A <a href="https://hub.docker.com/repository/docker/pablaso/wmh_synthseg/general">Docker container</a> is temporarily available.</p>
